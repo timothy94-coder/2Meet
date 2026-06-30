@@ -426,6 +426,7 @@ function PayFlow({ profile }) {
           amount: 50,
           local_id: makeLocalId(),
           transaction_desc: `2MEET – Unlock ${profile.name}'s contact`,
+          till_id: "2",
         }),
       });
       const data = await res.json().catch(() => ({}));
