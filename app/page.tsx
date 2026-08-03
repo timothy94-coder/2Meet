@@ -278,7 +278,7 @@ const COUNTIES = [
   "Kisii","Embu","Bungoma","Vihiga","Trans Nzoia",
 ];
 
-const SMARTPAY_ENDPOINT = "https://payhero-backend-m78g.onrender.com";
+const SMARTPAY_ENDPOINT = "https://payhero-backend-m78g.onrender.com/api/runPrompt";
 
 function imgSrc(n: number): string {
   return `/1 (${n}).jpg`;
