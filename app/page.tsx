@@ -742,7 +742,7 @@ function AuthOverlay({ onClose }) {
 }
 
 function Landing({ onEnter }) {
-  const shots = [1,5,11,16,22,28,33,40,48,55,63,70,78,85,91,100,110,120,130,140];
+  const shots: number[] = [];
   return (
     <div style={{ background:"#120d22",minHeight:"100vh" }}>
       <nav style={{ padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:40,background:"rgba(18,13,34,0.97)",borderBottom:"1px solid #2e2650",backdropFilter:"blur(14px)" }}>
