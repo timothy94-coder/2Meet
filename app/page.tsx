@@ -417,102 +417,45 @@ function PayFlow({ profile }) {
     }
     setErrMsg("");
     setStep("loading");
-    try {
-      const res = await fetch(SMARTPAY_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: clean,
-          amount: 50,
-          local_id: makeLocalId(),
-          transaction_desc: `2MEET – Unlock ${profile.name}'s contact`,
-          till_id: "2",
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.status === false) {
-        setErrMsg(data.msg || "Payment failed. Please try again.");
-        setStep("idle");
-        return;
-      }
+ try {
+  const res = await fetch(SMARTPAY_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      phone: clean,
+      amount: 50,
+      local_id: makeLocalId(),
+      transaction_desc: `2MEET – Unlock ${profile.name}'s contact`,
+      till_id: "2"
+    })
+  });
 
-setStep("waiting");
+  const data = await res.json().catch(() => ({}));
 
-const checkoutId =
-  data.checkout_request_id ??
-  data.checkoutRequestId ??
-  data.checkout_id ??
-  data.checkoutId;
+  console.log("PAYMENT SERVER RESPONSE:", data);
 
-console.log("Payment response:", data);
-console.log("Checkout ID:", checkoutId);
-
-if (!checkoutId) {
-  setErrMsg(
-    data.msg ||
-    "Payment was initiated, but no checkout ID was returned by the server."
-  );
-  setStep("idle");
-  return;
-}
-
-const statusEndpoint =
-  `${SMARTPAY_ENDPOINT.replace("/api/runPrompt", "")}/api/status/${encodeURIComponent(checkoutId)}`;
-
-let attempts = 0;
-const maxAttempts = 20;
-
-const checkPayment = setInterval(async () => {
-  attempts++;
-
-  try {
-    const res = await fetch(statusEndpoint);
-
-    if (res.status === 429) {
-      console.warn("Payment status rate-limited. Waiting before retrying.");
-      return;
-    }
-
-    const status = await res.json().catch(() => ({}));
-
-    console.log("Payment status:", status);
-
-    if (
-      status.success &&
-      status.transaction?.status === "completed"
-    ) {
-      clearInterval(checkPayment);
-      setStep("done");
-      return;
-    }
-
-    if (
-      status.transaction?.status === "failed" ||
-      status.transaction?.status === "cancelled"
-    ) {
-      clearInterval(checkPayment);
-      setErrMsg("The M-Pesa payment was not completed.");
-      setStep("idle");
-      return;
-    }
-
-    if (attempts >= maxAttempts) {
-      clearInterval(checkPayment);
-      setErrMsg(
-        "Payment confirmation is taking too long. Please check your M-Pesa messages and try again."
-      );
-      setStep("idle");
-    }
-  } catch (error) {
-    console.error("Payment status check failed:", error);
-
-    if (attempts >= maxAttempts) {
-      clearInterval(checkPayment);
-      setErrMsg("Unable to confirm the payment. Please try again.");
-      setStep("idle");
-    }
+  if (!res.ok || data.status === false) {
+    setErrMsg(
+      data.message ||
+      data.msg ||
+      "Payment failed. Please try again."
+    );
+    setStep("idle");
+    return;
   }
-}, 5000);
+
+  console.log("STK PUSH SUCCESSFULLY REQUESTED:", data);
+
+  setStep("waiting");
+
+} catch (error) {
+  console.error("STK ERROR:", error);
+
+  setErrMsg("Unable to contact the payment server.");
+  setStep("idle");
+}
 
 
     } catch {
