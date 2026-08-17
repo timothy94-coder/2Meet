@@ -422,7 +422,6 @@ function PayFlow({ profile }) {
   setStep("loading");
 
   try {
-    // 1. Send STK request
     const res = await fetch(SMARTPAY_ENDPOINT, {
       method: "POST",
       headers: {
@@ -451,44 +450,73 @@ function PayFlow({ profile }) {
       return;
     }
 
-    console.log("STK ACCEPTED BY BACKEND:", data);
+    // STK has been successfully requested
+    console.log("STK SENT:", data);
 
     setStep("waiting");
 
-    // 2. Get PayHero transaction ID
-    const transactionId =
-      data?.data?.transaction_id ||
-      data?.data?.transactionId ||
-      data?.data?.id ||
-      data?.transaction_id ||
-      data?.transactionId ||
-      data?.id;
+    /*
+     * Give PayHero/backend time to provide the transaction ID.
+     * Try several times instead of immediately showing an error.
+     */
 
+    let transactionId = null;
+
+    for (let attempt = 1; attempt <= 12; attempt++) {
+      console.log(`Waiting for transaction ID... ${attempt}/12`);
+
+      transactionId =
+        data?.data?.transaction_id ||
+        data?.data?.transactionId ||
+        data?.data?.id ||
+        data?.transaction_id ||
+        data?.transactionId ||
+        data?.id;
+
+      if (transactionId) {
+        break;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+
+    // Still no ID after 60 seconds
     if (!transactionId) {
-      console.error("NO TRANSACTION ID:", data);
+      console.error(
+        "Transaction ID was not returned after waiting:",
+        data
+      );
 
       setErrMsg(
-        "STK was sent, but the transaction ID was not returned."
+        "Payment was sent. We could not confirm the transaction yet. Please wait and try again."
       );
 
       setStep("idle");
       return;
     }
 
-    console.log("PAYHERO TRANSACTION ID:", transactionId);
+    console.log(
+      "PAYHERO TRANSACTION ID:",
+      transactionId
+    );
 
-    // 3. Build status endpoint
+    /*
+     * Now check the actual payment status.
+     */
+
     const statusEndpoint =
       SMARTPAY_ENDPOINT.replace(
         /\/api\/runPrompt\/?$/,
         `/api/status/${encodeURIComponent(transactionId)}`
       );
 
-    console.log("STATUS ENDPOINT:", statusEndpoint);
+    console.log(
+      "STATUS ENDPOINT:",
+      statusEndpoint
+    );
 
-    // 4. Check payment every 5 seconds
     let attempts = 0;
-    const maxAttempts = 24; // 2 minutes
+    const maxAttempts = 24;
 
     const checkPayment = async () => {
       attempts++;
@@ -511,7 +539,9 @@ function PayFlow({ profile }) {
           ""
         ).toLowerCase();
 
-        // SUCCESS
+        /*
+         * PAYMENT SUCCESS
+         */
         if (
           paymentStatus === "success" ||
           paymentStatus === "successful" ||
@@ -524,14 +554,19 @@ function PayFlow({ profile }) {
           return;
         }
 
-        // FAILED
+        /*
+         * PAYMENT FAILED
+         */
         if (
           paymentStatus === "failed" ||
           paymentStatus === "failure" ||
           paymentStatus === "cancelled" ||
           paymentStatus === "canceled"
         ) {
-          console.log("PAYMENT FAILED:", statusData);
+          console.log(
+            "PAYMENT FAILED:",
+            statusData
+          );
 
           setErrMsg(
             statusData?.message ||
@@ -542,41 +577,39 @@ function PayFlow({ profile }) {
           return;
         }
 
-        // TIMEOUT
-        if (attempts >= maxAttempts) {
-          console.log("PAYMENT CHECK TIMED OUT");
-
+        /*
+         * Still pending.
+         * Check again after 5 seconds.
+         */
+        if (attempts < maxAttempts) {
+          setTimeout(checkPayment, 5000);
+        } else {
           setErrMsg(
-            "Payment confirmation timed out. If you completed the payment, please wait a moment and try again."
+            "Payment confirmation is taking longer than expected."
           );
 
           setStep("idle");
-          return;
         }
 
-        // Check again in 5 seconds
-        setTimeout(checkPayment, 5000);
-
-      } catch (statusError) {
+      } catch (error) {
         console.error(
           "PAYMENT STATUS ERROR:",
-          statusError
+          error
         );
 
-        if (attempts >= maxAttempts) {
+        if (attempts < maxAttempts) {
+          setTimeout(checkPayment, 5000);
+        } else {
           setErrMsg(
-            "Unable to confirm the payment."
+            "Unable to confirm payment."
           );
 
           setStep("idle");
-          return;
         }
-
-        setTimeout(checkPayment, 5000);
       }
     };
 
-    // Start checking
+    // Start checking after 5 seconds
     setTimeout(checkPayment, 5000);
 
   } catch (error) {
@@ -589,6 +622,7 @@ function PayFlow({ profile }) {
     setStep("idle");
   }
 };
+
 
 
   if (step === "done") return (
