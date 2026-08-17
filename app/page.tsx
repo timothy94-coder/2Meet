@@ -456,12 +456,6 @@ function PayFlow({ profile }) {
   setErrMsg("Unable to contact the payment server.");
   setStep("idle");
 }
-
-
-    } catch {
-  setErrMsg("Unable to contact the payment server.");
-  setStep("idle");
-}
   };
 
   if (step === "done") return (
