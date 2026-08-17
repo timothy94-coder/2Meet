@@ -436,24 +436,84 @@ function PayFlow({ profile }) {
         return;
       }
 
-       setStep("waiting");
-   const checkoutId = data.checkout_request_id;
+setStep("waiting");
+
+const checkoutId =
+  data.checkout_request_id ??
+  data.checkoutRequestId ??
+  data.checkout_id ??
+  data.checkoutId;
+
+console.log("Payment response:", data);
+console.log("Checkout ID:", checkoutId);
+
+if (!checkoutId) {
+  setErrMsg(
+    data.msg ||
+    "Payment was initiated, but no checkout ID was returned by the server."
+  );
+  setStep("idle");
+  return;
+}
+
+const statusEndpoint =
+  `${SMARTPAY_ENDPOINT.replace("/api/runPrompt", "")}/api/status/${encodeURIComponent(checkoutId)}`;
+
+let attempts = 0;
+const maxAttempts = 20;
 
 const checkPayment = setInterval(async () => {
-  const res = await fetch(
-    `${SMARTPAY_ENDPOINT.replace("/api/runPrompt", "")}/api/status/${checkoutId}`
-  );
+  attempts++;
 
-  const status = await res.json();
+  try {
+    const res = await fetch(statusEndpoint);
 
-  if (
-    status.success &&
-    status.transaction.status === "completed"
-  ) {
-    clearInterval(checkPayment);
-    setStep("done");
+    if (res.status === 429) {
+      console.warn("Payment status rate-limited. Waiting before retrying.");
+      return;
+    }
+
+    const status = await res.json().catch(() => ({}));
+
+    console.log("Payment status:", status);
+
+    if (
+      status.success &&
+      status.transaction?.status === "completed"
+    ) {
+      clearInterval(checkPayment);
+      setStep("done");
+      return;
+    }
+
+    if (
+      status.transaction?.status === "failed" ||
+      status.transaction?.status === "cancelled"
+    ) {
+      clearInterval(checkPayment);
+      setErrMsg("The M-Pesa payment was not completed.");
+      setStep("idle");
+      return;
+    }
+
+    if (attempts >= maxAttempts) {
+      clearInterval(checkPayment);
+      setErrMsg(
+        "Payment confirmation is taking too long. Please check your M-Pesa messages and try again."
+      );
+      setStep("idle");
+    }
+  } catch (error) {
+    console.error("Payment status check failed:", error);
+
+    if (attempts >= maxAttempts) {
+      clearInterval(checkPayment);
+      setErrMsg("Unable to confirm the payment. Please try again.");
+      setStep("idle");
+    }
   }
-}, 3000);
+}, 5000);
+
 
     } catch {
   setErrMsg("Unable to contact the payment server.");
