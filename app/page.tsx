@@ -409,54 +409,187 @@ function PayFlow({ profile }) {
 
   const makeLocalId = () => `2MEET-${profile.id}-${Date.now()}`;
 
-  const initiatePay = async () => {
-    const clean = phone.replace(/\D/g, "");
-    if (!clean.match(/^0[17]\d{8}$/)) {
-      setErrMsg("Enter a valid Safaricom number e.g. 0712 345 678");
-      return;
-    }
-    setErrMsg("");
-    setStep("loading");
- try {
-  const res = await fetch(SMARTPAY_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      phone: clean,
-      amount: 50,
-      local_id: makeLocalId(),
-      transaction_desc: `2MEET – Unlock ${profile.name}'s contact`,
-      till_id: "2"
-    })
-  });
+ const initiatePay = async () => {
+  const clean = phone.replace(/\D/g, "");
+  const localId = makeLocalId();
 
-  const data = await res.json().catch(() => ({}));
-
-  console.log("PAYMENT SERVER RESPONSE:", data);
-
-  if (!res.ok || data.status === false) {
-    setErrMsg(
-      data.message ||
-      data.msg ||
-      "Payment failed. Please try again."
-    );
-    setStep("idle");
+  if (!/^0[17]\d{8}$/.test(clean)) {
+    setErrMsg("Enter a valid Safaricom number e.g. 0712 345 678");
     return;
   }
 
-  console.log("STK PUSH SUCCESSFULLY REQUESTED:", data);
+  setErrMsg("");
+  setStep("loading");
 
-  setStep("waiting");
+  try {
+    // 1. Send STK request
+    const res = await fetch(SMARTPAY_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        phone: clean,
+        amount: 50,
+        local_id: localId,
+        transaction_desc: `2MEET - Unlock ${profile.name}'s contact`,
+        till_id: "2",
+      }),
+    });
 
-} catch (error) {
-  console.error("STK ERROR:", error);
+    const data = await res.json().catch(() => ({}));
 
-  setErrMsg("Unable to contact the payment server.");
-  setStep("idle");
-}
-  };
+    console.log("PAYMENT SERVER RESPONSE:", data);
+
+    if (!res.ok || data.status === false) {
+      setErrMsg(
+        data.message ||
+        data.error ||
+        "Payment request failed."
+      );
+      setStep("idle");
+      return;
+    }
+
+    console.log("STK ACCEPTED BY BACKEND:", data);
+
+    setStep("waiting");
+
+    // 2. Get PayHero transaction ID
+    const transactionId =
+      data?.data?.transaction_id ||
+      data?.data?.transactionId ||
+      data?.data?.id ||
+      data?.transaction_id ||
+      data?.transactionId ||
+      data?.id;
+
+    if (!transactionId) {
+      console.error("NO TRANSACTION ID:", data);
+
+      setErrMsg(
+        "STK was sent, but the transaction ID was not returned."
+      );
+
+      setStep("idle");
+      return;
+    }
+
+    console.log("PAYHERO TRANSACTION ID:", transactionId);
+
+    // 3. Build status endpoint
+    const statusEndpoint =
+      SMARTPAY_ENDPOINT.replace(
+        /\/api\/runPrompt\/?$/,
+        `/api/status/${encodeURIComponent(transactionId)}`
+      );
+
+    console.log("STATUS ENDPOINT:", statusEndpoint);
+
+    // 4. Check payment every 5 seconds
+    let attempts = 0;
+    const maxAttempts = 24; // 2 minutes
+
+    const checkPayment = async () => {
+      attempts++;
+
+      try {
+        const statusRes = await fetch(statusEndpoint);
+
+        const statusData =
+          await statusRes.json().catch(() => ({}));
+
+        console.log(
+          `PAYMENT STATUS ${attempts}:`,
+          statusData
+        );
+
+        const paymentStatus = String(
+          statusData?.status ||
+          statusData?.data?.status ||
+          statusData?.transaction?.status ||
+          ""
+        ).toLowerCase();
+
+        // SUCCESS
+        if (
+          paymentStatus === "success" ||
+          paymentStatus === "successful" ||
+          paymentStatus === "completed" ||
+          paymentStatus === "paid"
+        ) {
+          console.log("PAYMENT CONFIRMED!");
+
+          setStep("done");
+          return;
+        }
+
+        // FAILED
+        if (
+          paymentStatus === "failed" ||
+          paymentStatus === "failure" ||
+          paymentStatus === "cancelled" ||
+          paymentStatus === "canceled"
+        ) {
+          console.log("PAYMENT FAILED:", statusData);
+
+          setErrMsg(
+            statusData?.message ||
+            "Payment was not completed."
+          );
+
+          setStep("idle");
+          return;
+        }
+
+        // TIMEOUT
+        if (attempts >= maxAttempts) {
+          console.log("PAYMENT CHECK TIMED OUT");
+
+          setErrMsg(
+            "Payment confirmation timed out. If you completed the payment, please wait a moment and try again."
+          );
+
+          setStep("idle");
+          return;
+        }
+
+        // Check again in 5 seconds
+        setTimeout(checkPayment, 5000);
+
+      } catch (statusError) {
+        console.error(
+          "PAYMENT STATUS ERROR:",
+          statusError
+        );
+
+        if (attempts >= maxAttempts) {
+          setErrMsg(
+            "Unable to confirm the payment."
+          );
+
+          setStep("idle");
+          return;
+        }
+
+        setTimeout(checkPayment, 5000);
+      }
+    };
+
+    // Start checking
+    setTimeout(checkPayment, 5000);
+
+  } catch (error) {
+    console.error("STK ERROR:", error);
+
+    setErrMsg(
+      "Unable to contact the payment server."
+    );
+
+    setStep("idle");
+  }
+};
+
 
   if (step === "done") return (
     <div className="reveal-box">
