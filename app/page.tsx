@@ -428,7 +428,7 @@ const initiatePay = async () => {
       },
       body: JSON.stringify({
         phone: clean,
-        amount: 50,
+        amount: 49,
         local_id: makeLocalId(),
         transaction_desc: `2MEET - Unlock ${profile.name}'s contact`,
         till_id: "2",
