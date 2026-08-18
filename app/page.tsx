@@ -529,7 +529,7 @@ const initiatePay = async () => {
         </div>
         <div>
           <div style={{ fontSize:11,color:"#93c5fd",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3,fontWeight:600 }}>Unlock {profile.name}'s contact</div>
-          <div style={{ fontWeight:800,fontSize:"1.3rem",color:"#fff" }}>KES 50</div>
+          <div style={{ fontWeight:800,fontSize:"1.3rem",color:"#fff" }}>KES 49</div>
           <div style={{ fontSize:10,color:"#6050a0",marginTop:2 }}>One-time · Instant access</div>
         </div>
       </div>
@@ -545,7 +545,7 @@ const initiatePay = async () => {
         {errMsg && <p style={{ fontSize:12,color:"#f87171",marginTop:6 }}>{errMsg}</p>}
       </div>
       <button className="pay-btn" onClick={initiatePay}>
-        <PhoneIcon /> Pay KES 50 via M-Pesa
+        <PhoneIcon /> Pay KES 49 via M-Pesa
       </button>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:5 }}>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6050a0" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
