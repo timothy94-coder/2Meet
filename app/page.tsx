@@ -467,7 +467,7 @@ const initiatePay = async () => {
     setTimeout(() => {
       console.log("WAIT COMPLETE — REVEALING NUMBER");
       setStep("done");
-    }, 120000);
+    }, 40000);
 
   } catch (error) {
     console.error("STK ERROR:", error);
