@@ -411,7 +411,6 @@ function PayFlow({ profile }) {
 
 const initiatePay = async () => {
   const clean = phone.replace(/\D/g, "");
-  const localId = makeLocalId();
 
   if (!/^0[17]\d{8}$/.test(clean)) {
     setErrMsg("Enter a valid Safaricom number e.g. 0712 345 678");
@@ -422,7 +421,6 @@ const initiatePay = async () => {
   setStep("loading");
 
   try {
-    // 1. Ask your backend to send the STK push
     const res = await fetch(SMARTPAY_ENDPOINT, {
       method: "POST",
       headers: {
@@ -431,7 +429,7 @@ const initiatePay = async () => {
       body: JSON.stringify({
         phone: clean,
         amount: 50,
-        local_id: localId,
+        local_id: makeLocalId(),
         transaction_desc: `2MEET - Unlock ${profile.name}'s contact`,
         till_id: "2",
       }),
@@ -439,7 +437,7 @@ const initiatePay = async () => {
 
     const data = await res.json().catch(() => ({}));
 
-    console.log("STK RESPONSE:", data);
+    console.log("PAYMENT SERVER RESPONSE:", data);
 
     if (!res.ok || data.status === false) {
       setErrMsg(
@@ -452,147 +450,24 @@ const initiatePay = async () => {
       return;
     }
 
-    // STK has been sent successfully
     console.log("STK SENT SUCCESSFULLY:", data);
 
+    // Show waiting screen
     setStep("waiting");
 
     /*
-     * IMPORTANT:
+     * TEMPORARY TEST:
      *
-     * Do NOT wait for transaction_id here.
+     * Do not look for transaction ID.
+     * Do not call status endpoint.
      *
-     * PayHero will call your backend callback after
-     * the customer enters their M-Pesa PIN.
-     *
-     * Your frontend now checks your backend using local_id.
+     * Wait 2 minutes, then reveal the number.
      */
 
-    const statusEndpoint =
-      SMARTPAY_ENDPOINT.replace(
-        /\/api\/runPrompt\/?$/,
-        `/api/payment-status/${encodeURIComponent(localId)}`
-      );
-
-    console.log("CHECKING PAYMENT:", statusEndpoint);
-
-    let attempts = 0;
-    const maxAttempts = 36; // 3 minutes
-
-    const checkPayment = async () => {
-      attempts++;
-
-      try {
-        const statusRes = await fetch(statusEndpoint, {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        const statusData =
-          await statusRes.json().catch(() => ({}));
-
-        console.log(
-          `PAYMENT CHECK ${attempts}/${maxAttempts}:`,
-          statusData
-        );
-
-        /*
-         * Accept several possible response formats
-         * from your backend.
-         */
-
-        const paymentStatus = String(
-          statusData?.status ||
-          statusData?.payment_status ||
-          statusData?.data?.status ||
-          statusData?.data?.payment_status ||
-          ""
-        ).toLowerCase();
-
-        /*
-         * PAYMENT SUCCESS
-         */
-
-        if (
-          paymentStatus === "success" ||
-          paymentStatus === "successful" ||
-          paymentStatus === "completed" ||
-          paymentStatus === "paid" ||
-          paymentStatus === "confirmed"
-        ) {
-          console.log("✅ PAYMENT CONFIRMED:", statusData);
-
-          setStep("done");
-          return;
-        }
-
-        /*
-         * PAYMENT FAILED
-         */
-
-        if (
-          paymentStatus === "failed" ||
-          paymentStatus === "failure" ||
-          paymentStatus === "cancelled" ||
-          paymentStatus === "canceled"
-        ) {
-          console.log("❌ PAYMENT FAILED:", statusData);
-
-          setErrMsg(
-            statusData?.message ||
-            statusData?.data?.message ||
-            "Payment was not completed."
-          );
-
-          setStep("idle");
-          return;
-        }
-
-        /*
-         * STILL WAITING
-         */
-
-        if (attempts < maxAttempts) {
-          setTimeout(checkPayment, 5000);
-          return;
-        }
-
-        /*
-         * Three minutes passed.
-         */
-
-        console.log(
-          "Payment confirmation timeout:",
-          statusData
-        );
-
-        setErrMsg(
-          "Your payment is still being confirmed. If you completed the M-Pesa payment, please wait a moment and try again."
-        );
-
-        setStep("idle");
-
-      } catch (error) {
-        console.error(
-          "PAYMENT STATUS ERROR:",
-          error
-        );
-
-        if (attempts < maxAttempts) {
-          setTimeout(checkPayment, 5000);
-          return;
-        }
-
-        setErrMsg(
-          "Unable to confirm payment. Please try again."
-        );
-
-        setStep("idle");
-      }
-    };
-
-    // Give the STK request a moment to reach the phone.
-    setTimeout(checkPayment, 5000);
+    setTimeout(() => {
+      console.log("WAIT COMPLETE — REVEALING NUMBER");
+      setStep("done");
+    }, 120000);
 
   } catch (error) {
     console.error("STK ERROR:", error);
