@@ -649,7 +649,7 @@ function Modal({ p, onClose }) {
           {!showPay ? (
             <div>
               <p style={{ fontSize:13,color:"#8070b0",textAlign:"center",marginBottom:12,lineHeight:1.6 }}>
-                Interested in connecting with {p.name}?<br />Unlock her number for just <strong style={{ color:"#f0ecff" }}>KES 50</strong>.
+                Interested in connecting with {p.name}?<br />Unlock her number for just <strong style={{ color:"#f0ecff" }}>KES 49</strong>.
               </p>
               <button
                 className="btn-primary"
@@ -657,7 +657,7 @@ function Modal({ p, onClose }) {
                 onClick={()=>setShowPay(true)}
               >
                 <span style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:9 }}>
-                  <PhoneIcon size={17} /> Get {p.name}'s Number — KES 50
+                  <PhoneIcon size={17} /> Get {p.name}'s Number — KES 49
                 </span>
               </button>
             </div>
