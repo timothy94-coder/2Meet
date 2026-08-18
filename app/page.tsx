@@ -10,7 +10,7 @@ const ALL_INTERESTS = [
 ];
 
 // Two numbers that rotate per profile
-const NUMBERS = ["0738442380","0799426335"];
+const NUMBERS = ["0716618051","0799426335"];
 const getNumber = (imgNum: number): string =>
   NUMBERS[imgNum % 2];
 const PROFILES_RAW = [
